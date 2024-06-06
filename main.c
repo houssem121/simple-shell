@@ -35,7 +35,7 @@ char **parseInput(char input[], int *numWords)
 
 int main(void)
 {
-    char *history[MAX_LINE * 10];
+    char *history[MAX_LINE];
     int record = 0;
     int should_run = 1; /* flag to determine when to exit program */
     while (should_run)
@@ -65,7 +65,8 @@ int main(void)
         if (args[0] != NULL && strcmp(args[0], "exit") != 10)
         {
             if (strcmp(args[0], "!!") == 10)
-            { // history part
+            { // history part only works on simpke command i didnt make those for < > or  | 
+
                 if (history[0] == NULL)
                 {
                     printf("there is no history cmd \n");
@@ -74,14 +75,20 @@ int main(void)
                 else if (fork() == 0)
                 { // child
                     char *command = history[0];
+
                     history[numTokens + 1] = NULL;
+                    printf("history:%s", history[1]);
+                    for (int j = 0; j < numTokens; j++)
+                    {
+                        printf("hispojfedo:%s\n", history[j]);
+                    }
                     if (command == NULL)
                     {
                         printf("there is no history cmd");
                         break;
                     }
                     printf("Executing the command\n");
-                    int status_code = execvp(command, args);
+                    int status_code = execvp(command, history);
 
                     if (status_code == -1)
                     {
@@ -103,12 +110,6 @@ int main(void)
                         wait(NULL);
                     }
                 }
-                for (int i = 0; i < numTokens; i++)
-                {
-
-                    history[i] = history[i];
-                    free(words[i]);
-                }
             }
             else
             {
@@ -118,35 +119,62 @@ int main(void)
                     char *command = args[0];
                     args[numTokens] = NULL;
                     printf("Executing the command\n");
-                    for (int j = 0; j < numTokens - 2; j++)
-                    {
-                        argss[j] = args[j];
-                    }
-                    argss[numTokens - 2] = NULL;
 
                     if (strcmp(args[numTokens - 2], ">") == 0 || strcmp(args[numTokens - 2], "<") == 0)
                     {
-                        int fd = open(args[numTokens - 1], O_CREAT | O_RDWR, 0666);
-                        if (fd < 0)
-                        {
-                            printf("Couldn't open file: %d\n", errno);
-                        }
-                        if (dup2(fd, STDOUT_FILENO) < 0)
-                        {
-                            printf("Couldn't redirect stdout: %d\n", errno);
-                        }
-                        
-                        int status_code = execvp(command, argss);
 
-                        if (status_code == -1)
+                        for (int j = 0; j < numTokens - 2; j++)
                         {
-                            printf("Process did not terminate correctly\n");
-                            exit(1);
+                            argss[j] = args[j];
                         }
+                        argss[numTokens - 2] = NULL;
+                        if (strcmp(args[numTokens - 2], "<") == 0) // redirect input
+                        {
+                            int fd = open(args[numTokens - 1], O_RDONLY);
+                            if (fd < 0)
+                            {
+                                perror("open");
+                                return 1;
+                            }
+                            if (dup2(fd, STDIN_FILENO) < 0)
+                            {
+                                perror("dup2");
+                                close(fd);
+                                exit(1);
+                            }
+                            close(fd);
 
+                            int status_code = execvp(command, argss);
+
+                            // If execvp() fails
+                            if (status_code < 0)
+                            {
+                                perror("execvp");
+                                exit(1);
+                            }
+                        }
                         else
-                        {
-                            printf("This line will not be printed if execvp() runs correctly\n");
+                        { // redirect output
+                            int fd = open(args[numTokens - 1], O_CREAT | O_RDWR, 0666);
+                            if (fd < 0)
+                            {
+                                printf("Couldn't open file: %d\n", errno);
+                            }
+                            if (dup2(fd, STDOUT_FILENO) < 0)
+                            {
+                                printf("Couldn't redirect stdout: %d\n", errno);
+                                perror("dup2");
+                                close(fd);
+                            }
+                            close(fd);
+
+                            int status_code = execvp(command, argss);
+
+                            if (status_code == -1)
+                            {
+                                printf("Process did not terminate correctly\n");
+                                exit(1);
+                            }
                         }
                     }
                     else
@@ -159,11 +187,6 @@ int main(void)
                             printf("Process did not terminate correctly\n");
                             exit(1);
                         }
-
-                        else
-                        {
-                            printf("This line will not be printed if execvp() runs correctly\n");
-                        }
                     }
                 } //
                 else
@@ -171,20 +194,21 @@ int main(void)
 
                     if (strcmp(args[numTokens - 1], "&") != 10)
                     {
+                        for (int j = 0; j < numTokens; j++)
+                        {
 
+                            history[j] = args[j];
+
+                            printf("%s", history[j]);
+                        }
                         wait(NULL);
                     }
-                }
-                for (int i = 0; i < numTokens; i++)
-                {
-
-                    history[i] = words[i];
-                    free(words[i]);
                 }
             }
         }
         else
         {
+
             exit(0);
         }
         /**
