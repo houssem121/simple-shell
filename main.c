@@ -4,8 +4,15 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sysexits.h>
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #define MAX_LINE 80 /* The maximum length command */
+enum SpecialCommands
+{
+    CMD_HISTORY = 1, // Example: "!!"
 
+};
 char **parseInput(char input[], int *numWords)
 {
     const char *separators = " ";
@@ -44,50 +51,141 @@ int main(void)
         }
 
         char **words = parseInput(input, &numTokens);
-        char *args[numTokens + 1];
+        printf("%d", numTokens);
+        char *args[numTokens - 2];
         // Print the words
         for (int i = 0; i < numTokens; i++)
         {
             printf("Word %d: %s\n", i + 1, words[i]);
-            history[record + i] = words[i];
             args[i] = words[i];
         }
-        // history saving
-        int j = 0;
+
         record = record + numTokens;
-        do
+        char *argss[numTokens];
+        if (args[0] != NULL && strcmp(args[0], "exit") != 10)
         {
-            printf("%s:\n", history[j]);
-            j++;
-        } while (history[j] != NULL);
-        // exit maybe later i will do it
-    
-        if (fork() == 0)
-        { // child
-            char *command = args[0];
-            args[numTokens + 1] = NULL;
-            printf("Executing the command\n");
-            int status_code = execvp(command, args);
+            if (strcmp(args[0], "!!") == 10)
+            { // history part
+                if (history[0] == NULL)
+                {
+                    printf("there is no history cmd \n");
+                }
 
-            if (status_code == -1)
-            {
-                printf("Process did not terminate correctly\n");
-                exit(1);
+                else if (fork() == 0)
+                { // child
+                    char *command = history[0];
+                    history[numTokens + 1] = NULL;
+                    if (command == NULL)
+                    {
+                        printf("there is no history cmd");
+                        break;
+                    }
+                    printf("Executing the command\n");
+                    int status_code = execvp(command, args);
+
+                    if (status_code == -1)
+                    {
+                        printf("Process did not terminate correctly\n");
+                        exit(1);
+                    }
+
+                    else
+                    {
+                        printf("This line will not be printed if execvp() runs correctly\n");
+                    }
+                } //
+                else
+                { // parent
+
+                    if (strcmp(history[numTokens - 1], "&") != 10)
+                    {
+
+                        wait(NULL);
+                    }
+                }
+                for (int i = 0; i < numTokens; i++)
+                {
+
+                    history[i] = history[i];
+                    free(words[i]);
+                }
             }
-
             else
             {
-                printf("This line will not be printed if execvp() runs correctly\n");
+
+                if (fork() == 0)
+                { // child
+                    char *command = args[0];
+                    args[numTokens] = NULL;
+                    printf("Executing the command\n");
+                    for (int j = 0; j < numTokens - 2; j++)
+                    {
+                        argss[j] = args[j];
+                    }
+                    argss[numTokens - 2] = NULL;
+
+                    if (strcmp(args[numTokens - 2], ">") == 0 || strcmp(args[numTokens - 2], "<") == 0)
+                    {
+                        int fd = open(args[numTokens - 1], O_CREAT | O_RDWR, 0666);
+                        if (fd < 0)
+                        {
+                            printf("Couldn't open file: %d\n", errno);
+                        }
+                        if (dup2(fd, STDOUT_FILENO) < 0)
+                        {
+                            printf("Couldn't redirect stdout: %d\n", errno);
+                        }
+                        
+                        int status_code = execvp(command, argss);
+
+                        if (status_code == -1)
+                        {
+                            printf("Process did not terminate correctly\n");
+                            exit(1);
+                        }
+
+                        else
+                        {
+                            printf("This line will not be printed if execvp() runs correctly\n");
+                        }
+                    }
+                    else
+                    {
+
+                        int status_code = execvp(command, args);
+
+                        if (status_code == -1)
+                        {
+                            printf("Process did not terminate correctly\n");
+                            exit(1);
+                        }
+
+                        else
+                        {
+                            printf("This line will not be printed if execvp() runs correctly\n");
+                        }
+                    }
+                } //
+                else
+                { // parent
+
+                    if (strcmp(args[numTokens - 1], "&") != 10)
+                    {
+
+                        wait(NULL);
+                    }
+                }
+                for (int i = 0; i < numTokens; i++)
+                {
+
+                    history[i] = words[i];
+                    free(words[i]);
+                }
             }
-        } //
+        }
         else
-        { // parent
-
-            if (strcmp(args[numTokens - 1], "&") != 10)
-            {
-
-                wait(NULL);
-            }
+        {
+            exit(0);
         }
         /**
          * After reading user input, the steps are:
