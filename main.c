@@ -65,7 +65,7 @@ int main(void)
         if (args[0] != NULL && strcmp(args[0], "exit") != 10)
         {
             if (strcmp(args[0], "!!") == 10)
-            { // history part only works on simpke command i didnt make those for < > or  | 
+            { // history part only works on simpke command i didnt make those for < > or  |
 
                 if (history[0] == NULL)
                 {
@@ -120,7 +120,7 @@ int main(void)
                     args[numTokens] = NULL;
                     printf("Executing the command\n");
 
-                    if (strcmp(args[numTokens - 2], ">") == 0 || strcmp(args[numTokens - 2], "<") == 0)
+                    if (strcmp(args[numTokens - 2], ">") == 0 || strcmp(args[numTokens - 2], "<") == 0 || strcmp(args[numTokens - 2], "|") == 0)
                     {
 
                         for (int j = 0; j < numTokens - 2; j++)
@@ -152,6 +152,57 @@ int main(void)
                                 perror("execvp");
                                 exit(1);
                             }
+                        }
+                        else if (strcmp(args[numTokens - 2], "|") == 0)
+                        {
+                            pid_t pid;
+                            int fd[2];
+                            printf("hey i am  | \n");
+                            pipe(fd);
+                            pid = fork();
+
+                            if (pid == 0)
+                            {
+                                printf("hey i am  | : %s %s\n", argss[0], argss[1]);
+                                close(fd[0]);               // Close unused read end
+                                dup2(fd[1], STDOUT_FILENO); // Redirect stdout to the pipe
+                                close(fd[1]);               // Close the write end after duplicating
+
+                                int status_code = execvp(argss[0], argss);
+
+                                // If execvp() fails
+                                if (status_code < 0)
+                                {
+                                    perror("execvp");
+                                    exit(1);
+                                }
+                                exit(1);
+                            }
+                            else
+                            {
+                                char *argss[2];
+                                argss[0] = args[numTokens - 1];
+                                argss[1] = NULL;
+                                printf("hey i am  | : %s %s\n", argss[0], argss[1]);
+                                close(fd[1]);              // Close unused write end
+                                dup2(fd[0], STDIN_FILENO); // Redirect stdin to the pipe
+                                close(fd[0]);              // Close the read end after duplicating
+
+                                int status_code = execvp(args[0], argss);
+
+                                // If execvp() fails
+                                if (status_code < 0)
+                                {
+                                    perror("execvp");
+                                    exit(1);
+                                }
+                                exit(1);
+                            }
+
+                            int status;
+                            close(fd[1]);
+                            close(fd[0]);
+                            waitpid(pid, &status, 0);
                         }
                         else
                         { // redirect output
