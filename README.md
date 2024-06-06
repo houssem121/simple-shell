@@ -87,7 +87,6 @@ osh>
 
 - **Houssem Hammami** - *Initial work* - [Houssem121](https://github.com/houssem121)
 
-See also the list of [contributors](https://github.com/houssem121/simple-shell/contributors) who participated in this project.
 
 ## License
 
